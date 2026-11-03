@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, SecretStr
+from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,8 +11,10 @@ class PlatformServer(BaseModel):
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore", validate_assignment=True)
-    clifford_auth_secret: SecretStr = SecretStr("")
+    model_config = SettingsConfigDict(
+        env_file=".env", extra="ignore", validate_assignment=True, populate_by_name=True
+    )
+    socket_path: str = Field("/run/clifford/api.sock", validation_alias="CLIFFORD_SOCKET_PATH")
     clifford_user_id: str = "owner"
     assistant_name: str = "Clifford"
     wake_phrase: str = "Clifford"
@@ -30,3 +32,10 @@ class Settings(BaseSettings):
     vosk_model_path: str = "./data/models/vosk-model-small-en-us-0.15"
     web_root: str | None = None
     platform_servers: list[PlatformServer] = Field(default_factory=list)
+
+    @field_validator("socket_path")
+    @classmethod
+    def valid_socket_path(cls, value):
+        if not value.startswith("/") or "\x00" in value or value.endswith("/"):
+            raise ValueError("Socket path must be an absolute file path")
+        return value

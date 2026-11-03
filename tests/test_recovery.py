@@ -3,6 +3,7 @@ import asyncio
 import pytest
 from alembic import command
 from alembic.config import Config
+from conftest import socket_app
 from fastapi.testclient import TestClient
 
 from clifford.api import create_app
@@ -15,7 +16,7 @@ def test_migrations_round_trip(configured):
     command.downgrade(cfg, "base")
     command.upgrade(cfg, "head")
     command.upgrade(cfg, "head")
-    with TestClient(create_app(*configured)) as client:
+    with TestClient(socket_app(create_app(*configured))) as client:
         assert client.get("/v1/health").status_code == 200
 
 
@@ -64,8 +65,7 @@ def test_plan_survives_restart_waiting_approval(client, configured):
     waiting = client.post(f"/v1/tasks/{tid}/run").json()
     assert client.post(f"/v1/tasks/{tid}/run").json()["status"] == "waiting_for_authorization"
     aid = waiting["steps"][0]["result"]["approval_id"]
-    with TestClient(create_app(*configured)) as restarted:
-        restarted.headers["Authorization"] = "Bearer " + "x" * 40
+    with TestClient(socket_app(create_app(*configured))) as restarted:
         assert (
             restarted.post(f"/v1/approvals/{aid}/decision", json={"approve": True}).status_code
             == 200

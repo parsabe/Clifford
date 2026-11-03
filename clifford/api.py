@@ -1,5 +1,4 @@
 import asyncio
-import hmac
 import json
 import time
 from collections import deque
@@ -7,7 +6,6 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse, Response, StreamingResponse
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, text
 
@@ -35,9 +33,8 @@ from .platforms import Platforms
 from .providers.llm import OllamaProvider, ProviderError, Router
 from .providers.speech import LocalSpeech
 from .tools import Registry, ToolError
+from .transport import require_socket
 from .voice_tickets import VoiceTickets
-
-bearer = HTTPBearer(auto_error=False)
 
 
 def create_app(settings=None, provider=None):
@@ -64,16 +61,12 @@ def create_app(settings=None, provider=None):
         title="Clifford",
         version="0.1.0",
         lifespan=lifespan,
-        description="Headless assistant. Single configured identity per deployment.",
+        description="Private Unix-socket kernel. One configured identity; no shared access token.",
     )
     app.state.store, app.state.engine, app.state.registry = store, engine, registry
 
-    def authenticate(token):
-        secret = settings.clifford_auth_secret.get_secret_value()
-        if len(secret) < 32:
-            raise HTTPException(503, detail={"code": "auth_not_configured"})
-        if not isinstance(token, str) or not hmac.compare_digest(token.encode(), secret.encode()):
-            raise HTTPException(401, detail={"code": "unauthorized"})
+    def identify(scope):
+        require_socket(scope, settings.socket_path)
         cutoff = time.monotonic() - 60
         while hits and hits[0] < cutoff:
             hits.popleft()
@@ -82,11 +75,17 @@ def create_app(settings=None, provider=None):
         hits.append(time.monotonic())
         return settings.clifford_user_id
 
-    async def identity(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
-        return authenticate(credentials.credentials if credentials else None)
+    async def identity(request: Request):
+        return identify(request.scope)
 
     @app.middleware("http")
     async def request_context(request: Request, call_next):
+        try:
+            require_socket(request.scope, settings.socket_path)
+        except HTTPException:
+            return JSONResponse(
+                status_code=403, content={"error": {"code": "private_socket_required"}}
+            )
         correlation = uid()
         # Reject oversized JSON before parsing. Streaming uploads aren't supported.
         if request.method in {"POST", "PUT", "PATCH"}:
@@ -332,6 +331,11 @@ def create_app(settings=None, provider=None):
 
     @app.websocket("/v1/voice/listen")
     async def listen(ws: WebSocket):
+        try:
+            require_socket(ws.scope, settings.socket_path)
+        except HTTPException:
+            await ws.close(code=1008)
+            return
         await ws.accept()
         correlation = uid()
 
@@ -341,10 +345,7 @@ def create_app(settings=None, provider=None):
 
         try:
             auth = await asyncio.wait_for(ws.receive_json(), 10)
-            if "ticket" in auth:
-                voice_tickets.consume(auth["ticket"])
-            else:
-                authenticate(auth.get("token"))
+            voice_tickets.consume(auth.get("ticket"))
             recognizer = await asyncio.to_thread(speech.recognizer)
             await send("audio.ready", sample_rate=16000, encoding="pcm_s16le", channels=1)
             window, received = time.monotonic(), 0
@@ -377,12 +378,9 @@ def create_app(settings=None, provider=None):
     @app.websocket("/v1/realtime")
     async def realtime(ws: WebSocket):
         await ws.accept()
-        # Authenticate in first frame, never URL/query-string credentials. Same origin
-        # CORS is not an authorization mechanism. Browsers must keep token in memory.
         try:
-            auth = await asyncio.wait_for(ws.receive_json(), timeout=10)
-            owner = authenticate(auth.get("token"))
-        except (TimeoutError, HTTPException, ValueError, AttributeError, WebSocketDisconnect):
+            owner = identify(ws.scope)
+        except HTTPException:
             await ws.close(code=1008)
             return
         active = None
@@ -419,7 +417,7 @@ def create_app(settings=None, provider=None):
                     if active and not active.done():
                         await control("error", code="session_busy")
                     else:
-                        authenticate(auth.get("token"))  # shared rate budget
+                        identify(ws.scope)  # shared rate budget
                         active = asyncio.create_task(reply(body))
         except (WebSocketDisconnect, ValueError, HTTPException):
             pass

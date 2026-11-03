@@ -1,6 +1,7 @@
 import json
 from datetime import UTC, datetime, timedelta
 
+from conftest import socket_app
 from fastapi.testclient import TestClient
 
 from clifford.api import create_app
@@ -8,19 +9,25 @@ from clifford.persistence import Memory, Session, User
 from clifford.providers.llm import Chunk
 
 
-def test_auth_and_openapi(client):
+def test_socket_gate_and_openapi(client):
     assert client.get("/v1/health").json()["status"] == "ok"
-    assert client.get("/v1/tools", headers={"Authorization": "Bearer wrong"}).status_code == 401
-    spec = client.get("/openapi.json").json()
-    assert "/v1/chat/stream" in spec["paths"]
-    assert "HTTPBearer" in spec["components"]["securitySchemes"]
+    assert client.get("/v1/tools").status_code == 200
+    assert "/v1/chat/stream" in client.get("/openapi.json").json()["paths"]
 
 
-def test_missing_auth_fails_closed(configured):
+def test_tcp_and_forged_forwarding_fail_closed(configured):
     settings, provider = configured
-    settings.clifford_auth_secret = ""
-    with TestClient(create_app(settings, provider)) as client:
-        assert client.get("/v1/tools").status_code == 503
+    with TestClient(create_app(settings, provider)) as tcp:
+        response = tcp.get(
+            "/v1/tools",
+            headers={
+                "X-Forwarded-For": "127.0.0.1",
+                "Authorization": "Bearer arbitrary",
+                "X-Forwarded-Proto": "http",
+            },
+        )
+        assert response.status_code == 403
+        assert response.json()["error"]["code"] == "private_socket_required"
 
 
 def test_chat_context_and_persistence(client, configured):
@@ -33,8 +40,7 @@ def test_chat_context_and_persistence(client, configured):
     assert [m["role"] for m in messages] == ["user", "assistant", "user"]
     assert len(client.get(f"/v1/sessions/{sid}").json()["messages"]) == 4
     settings, provider = configured
-    with TestClient(create_app(settings, provider)) as restarted:
-        restarted.headers["Authorization"] = "Bearer " + "x" * 40
+    with TestClient(socket_app(create_app(settings, provider))) as restarted:
         assert len(restarted.get(f"/v1/sessions/{sid}").json()["messages"]) == 4
 
 
@@ -61,8 +67,7 @@ def test_provider_failure_redacted(configured):
             raise RuntimeError("secret-must-not-leak")
 
     settings, _ = configured
-    with TestClient(create_app(settings, Broken())) as client:
-        client.headers["Authorization"] = "Bearer " + "x" * 40
+    with TestClient(socket_app(create_app(settings, Broken()))) as client:
         response = client.post("/v1/chat", json={"text": "Hello"})
         assert "secret-must-not-leak" not in response.text
         assert response.json()["events"][-1]["type"] == "error"
@@ -79,12 +84,12 @@ def test_missing_provider_and_speech(configured, monkeypatch):
         yield
 
     monkeypatch.setattr(OllamaProvider, "stream", unavailable)
-    with TestClient(create_app(settings)) as client:
-        client.headers["Authorization"] = "Bearer " + "x" * 40
+    with TestClient(socket_app(create_app(settings))) as client:
         events = client.post("/v1/chat", json={"text": "Hello"}).json()["events"]
         assert events[-1]["payload"]["code"] == "ollama_unavailable"
         with client.websocket_connect("/v1/voice/listen") as ws:
-            ws.send_json({"token": "x" * 40})
+            ticket = client.post("/v1/voice/tickets").json()["ticket"]
+            ws.send_json({"ticket": ticket})
             assert ws.receive_json()["payload"]["code"] == "speech_model_not_installed"
 
 
@@ -133,7 +138,6 @@ def test_untrusted_memory_cannot_execute(client, configured):
 
 def test_websocket_chat(client):
     with client.websocket_connect("/v1/realtime") as ws:
-        ws.send_json({"token": "x" * 40})
         ws.send_json({"text": "Hello"})
         received = [ws.receive_json() for _ in range(5)]
         assert received[-1]["type"] == "assistant.completed"
@@ -149,8 +153,7 @@ def test_body_and_validation_limits(client):
 def test_rate_limit(configured):
     settings, provider = configured
     settings.requests_per_minute = 1
-    with TestClient(create_app(settings, provider)) as client:
-        client.headers["Authorization"] = "Bearer " + "x" * 40
+    with TestClient(socket_app(create_app(settings, provider))) as client:
         assert client.get("/v1/tools").status_code == 200
         assert client.get("/v1/tools").status_code == 429
 
@@ -166,6 +169,6 @@ def test_external_web_root(configured, tmp_path):
     web.mkdir()
     (web / "index.html").write_text("<h1>Clifford web client</h1>")
     settings.web_root = str(web)
-    with TestClient(create_app(settings, provider)) as attached:
+    with TestClient(socket_app(create_app(settings, provider))) as attached:
         assert attached.get("/console/").status_code == 200
         assert "Clifford web client" in attached.get("/console/").text
