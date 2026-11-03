@@ -28,4 +28,5 @@ class Settings(BaseSettings):
     files_root: str = "./data/files"
     requests_per_minute: int = Field(60, ge=1)
     vosk_model_path: str = "./data/models/vosk-model-small-en-us-0.15"
+    web_root: str | None = None
     platform_servers: list[PlatformServer] = Field(default_factory=list)

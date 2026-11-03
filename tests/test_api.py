@@ -153,3 +153,19 @@ def test_rate_limit(configured):
         client.headers["Authorization"] = "Bearer " + "x" * 40
         assert client.get("/v1/tools").status_code == 200
         assert client.get("/v1/tools").status_code == 429
+
+
+def test_headless_kernel_without_web_files(client):
+    assert client.get("/v1/health").status_code == 200
+    assert client.get("/console/").status_code == 404
+
+
+def test_external_web_root(configured, tmp_path):
+    settings, provider = configured
+    web = tmp_path / "web"
+    web.mkdir()
+    (web / "index.html").write_text("<h1>Clifford web client</h1>")
+    settings.web_root = str(web)
+    with TestClient(create_app(settings, provider)) as attached:
+        assert attached.get("/console/").status_code == 200
+        assert "Clifford web client" in attached.get("/console/").text

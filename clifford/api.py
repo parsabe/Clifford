@@ -4,7 +4,6 @@ import json
 import time
 from collections import deque
 from contextlib import asynccontextmanager
-from importlib.resources import files
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse, Response, StreamingResponse
@@ -420,11 +419,12 @@ def create_app(settings=None, provider=None):
                 active.cancel()
                 await asyncio.gather(active, return_exceptions=True)
 
-    app.mount(
-        "/console",
-        StaticFiles(directory=str(files("clifford").joinpath("static")), html=True),
-        name="console",
-    )
+    if settings.web_root:
+        app.mount(
+            "/console",
+            StaticFiles(directory=settings.web_root, html=True),
+            name="console",
+        )
     return app
 
 
