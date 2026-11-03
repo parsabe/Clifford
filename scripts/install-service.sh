@@ -6,7 +6,10 @@ web_user="${1:-www}"
 id "$web_user" >/dev/null
 kernel_root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 case "$kernel_root" in *[!A-Za-z0-9_./-]*) echo 'Use a kernel path without spaces or shell metacharacters.' >&2; exit 1;; esac
+case "$kernel_root" in /root/*|/home/*) echo 'Install the kernel under /opt; the service protects home directories.' >&2; exit 1;; esac
 [ -x "$kernel_root/.venv/bin/python" ] || { echo 'Install kernel Python dependencies first.' >&2; exit 1; }
+python_location="$(readlink -f "$kernel_root/.venv/bin/python")"
+case "$python_location" in /root/*|/home/*) echo 'Recreate the venv with a system or /opt managed Python runtime.' >&2; exit 1;; esac
 getent group clifford-web >/dev/null || groupadd --system clifford-web
 getent group clifford >/dev/null || groupadd --system clifford
 id clifford >/dev/null 2>&1 || useradd --system --gid clifford --no-create-home --home-dir /var/lib/clifford --shell /usr/sbin/nologin clifford
