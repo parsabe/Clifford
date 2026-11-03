@@ -1,0 +1,6 @@
+clifford.parsabe.com {
+    encode zstd gzip
+    reverse_proxy unix//run/clifford/api.sock {
+        flush_interval -1
+    }
+}

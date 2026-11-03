@@ -1,7 +1,6 @@
-# Replace clifford.example.com with a domain pointing at your server.
-clifford.example.com {
+clifford.parsabe.com {
     encode zstd gzip
-    reverse_proxy 127.0.0.1:8000 {
+    reverse_proxy unix//run/clifford/api.sock {
         flush_interval -1
     }
 }

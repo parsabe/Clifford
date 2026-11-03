@@ -1,0 +1,19 @@
+#!/bin/sh
+set -eu
+case "$1" in
+    purge)
+        # Deliberate purge removes generated runtime/config, never conversations or models.
+        rm -f /etc/clifford/clifford.env
+        rmdir /etc/clifford 2>/dev/null || true
+        rm -rf /opt/clifford/venv
+        rmdir /opt/clifford 2>/dev/null || true
+        deb-systemd-helper purge clifford.service >/dev/null || true
+        ;;
+esac
+if [ -d /run/systemd/system ]; then
+    systemctl daemon-reload
+    if [ "$1" = remove ] || [ "$1" = purge ]; then
+        deb-systemd-invoke reload caddy.service || true
+    fi
+fi
+exit 0

@@ -1,13 +1,17 @@
 services:
   clifford:
-    build: .
-    env_file: .env
+    build:
+      context: ../clifford-kernel
+      dockerfile: ../clifford-linux/Dockerfile
+    env_file: ../clifford-kernel/.env
     environment:
       OLLAMA_BASE_URL: http://ollama:11434
+      WEB_ROOT: /app/web
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
       - clifford-data:/app/data
+      - ../clifford-web/web:/app/web:ro
     depends_on:
       - ollama
     restart: unless-stopped

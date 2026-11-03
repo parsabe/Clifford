@@ -1,0 +1,40 @@
+#!/bin/sh
+set -eu
+case "$1" in
+    configure)
+        if ! getent group clifford >/dev/null; then
+            addgroup --system clifford
+        fi
+        if ! getent group clifford-web >/dev/null; then
+            addgroup --system clifford-web
+        fi
+        if ! getent passwd clifford >/dev/null; then
+            adduser --system --home /var/lib/clifford --no-create-home --ingroup clifford clifford
+        fi
+        install -d -o root -g root -m 0755 /opt/clifford
+        install -d -o root -g root -m 0700 /etc/clifford
+        install -d -o clifford -g clifford -m 0700 /var/lib/clifford
+        python3 -I /usr/lib/clifford/debian/init_config.py /etc/clifford/clifford.env
+        # Reuse the local runtime on upgrades; all dependencies are shipped and hashed.
+        python3 -I -m venv /opt/clifford/venv
+        /opt/clifford/venv/bin/python -I -m pip --isolated install \
+            --no-cache-dir --disable-pip-version-check --no-index \
+            --find-links=/usr/share/clifford/wheels --require-hashes --no-deps \
+            --upgrade --force-reinstall -r /usr/share/clifford/wheel-requirements.txt
+        /opt/clifford/venv/bin/python -I -m pip --isolated check
+        if [ -d /run/systemd/system ]; then
+            systemctl daemon-reload
+            deb-systemd-helper unmask clifford.service >/dev/null || true
+            deb-systemd-helper enable clifford.service >/dev/null || true
+            deb-systemd-invoke start clifford.service || true
+        fi
+        echo "Clifford installed. Read /usr/share/doc/clifford-assistant/README.Debian."
+        echo "Run sudo clifford download-voice, then configure DNS and sudo clifford enable-site."
+        ;;
+    abort-upgrade|abort-remove|abort-deconfigure)
+        if [ -d /run/systemd/system ]; then
+            deb-systemd-invoke start clifford.service || true
+        fi
+        ;;
+esac
+exit 0

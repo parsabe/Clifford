@@ -1,0 +1,36 @@
+[Unit]
+Description=Clifford local AI assistant
+After=network.target ollama.service
+Wants=network.target
+
+[Service]
+Type=simple
+User=clifford
+Group=clifford-web
+WorkingDirectory=/var/lib/clifford
+EnvironmentFile=/etc/clifford/clifford.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+RuntimeDirectory=clifford
+RuntimeDirectoryMode=0750
+StateDirectory=clifford
+StateDirectoryMode=0700
+ExecStartPre=/opt/clifford/venv/bin/python -m alembic -c /usr/lib/clifford/alembic.ini upgrade head
+ExecStart=/opt/clifford/venv/bin/python -m uvicorn clifford.api:app --uds /run/clifford/api.sock --workers 1 --ws-max-size 128000 --proxy-headers --forwarded-allow-ips=* --no-access-log
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=/var/lib/clifford /run/clifford
+
+[Install]
+WantedBy=multi-user.target
