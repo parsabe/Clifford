@@ -38,3 +38,9 @@ architecture; package work will resume after the server's Ubuntu version and arc
 
 No paid model API keys are required. Private backend authentication, models and databases are excluded
 from the repository. The original all-in-one source remains recoverable at commit `f230eaf`.
+
+
+The current kernel is **Unix-socket only**, with no shared backend token. Laravel uses aaPanel site
+access protection and has no custom web password/hash setting. The setup command removes retired
+fields automatically. Update both kernel and web-interface and apply the linked aaPanel socket guide;
+removing environment lines alone does not upgrade an older installation.
