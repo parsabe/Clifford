@@ -1,37 +1,24 @@
-# Deploy the Laravel web app and separate AI kernel
+# Install the private kernel and Laravel site
 
-The master branch is an index. The web-interface branch is now a Laravel 13/PHP 8.3+ application;
-the kernel branch remains a separate Python service. Do not merge the branches.
+Clone kernel and web-interface separately; do not merge branches. The kernel now accepts only Unix
+socket traffic, with no shared access token or HTTP backend URL. The Laravel site has no custom
+password hash; aaPanel site Password Access protects it.
 
-Clone the web branch into an empty aaPanel site directory:
+1. Install the kernel branch in a service-readable root-owned location such as /opt/clifford/kernel.
+   Install Python dependencies, local Ollama/Gemma and Vosk according to its README.
+2. From the kernel checkout run `sudo ./scripts/install-service.sh www`, replacing www with the
+   site's actual PHP-FPM/Nginx account. Restart PHP-FPM and Nginx so group access takes effect.
+3. Deploy the web-interface branch, including hidden files. Preserve .env and storage on updates.
+4. Run composer install, php artisan optimize:clear, php artisan clifford:install --no-interaction,
+   php artisan optimize and php artisan clifford:check.
+5. Set aaPanel root to public/, enable SSL and server-wide Password Access, and apply the supplied
+   FastCGI parameters and Unix-socket voice proxy. Follow [the complete guide](aapanel.md).
 
-```sh
-git clone --branch web-interface --single-branch https://github.com/parsabe/Clifford.git .
-composer install --no-dev --prefer-dist --optimize-autoloader
-cp .env.example .env  # only when absent
-php artisan clifford:install
-php artisan optimize
-php artisan clifford:check
-```
+The installer removes old backend-token, backend-timeout, custom-password-hash and old HTTP URL
+settings automatically. It asks no secret/password questions, preserves unrelated fields and an
+existing APP_KEY, and generates Laravel's encryption key when absent. CLIFFORD_SOCKET_PATH defaults
+to /run/clifford/api.sock on both sides. Internal timeouts remain bounded without a user setting.
 
-Set aaPanel Running Directory to **public/**, select PHP 8.3+, enable HTTPS for
-**clifford.parsabe.com**, and add the Laravel rewrite and voice-only WebSocket proxy configuration.
-[Complete aaPanel instructions](aapanel.md) explain PHP permissions, buffering and timeouts.
-No Node build or web database is required. The owner login and kernel token are configured privately;
-the browser never receives the long-lived kernel token.
-
-Install/run the kernel in its own directory according to its README:
-
-```sh
-git clone --branch kernel --single-branch https://github.com/parsabe/Clifford.git clifford-kernel
-```
-
-Keep the kernel privately reachable, typically at 127.0.0.1:8000, with one worker. Update it to include
-POST /v1/voice/tickets. Leave its WEB_ROOT empty: Laravel now serves the web pages. Install local
-Ollama gemma3:12b and the Vosk speech model, and run its actual model readiness script. The separate
-Debian package effort remains paused pending Ubuntu/architecture details. aaPanel handles public
-ports 80/443 and certificates; do not run an additional conflicting Caddy listener.
-
-A 12GB server may be tight for quantized Gemma 3 12B; small context settings are included. Real inference
-speed, recognition and speaker echo still need testing on your hardware. The Laravel conversion has
-passed feature and browser protocol-fixture checks, not a real deployment to your domain.
+The .deb build is still paused pending OS/architecture details. Its older Caddy/Docker recipes are
+not the current aaPanel installation path. Live target-server Gemma/physical voice and DNS/certificate
+activation still require verification. A 12GB server may be tight for quantized Gemma 3 12B.

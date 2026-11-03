@@ -36,3 +36,13 @@ It passes 11 feature tests (59 assertions), five voice-state tests and browser c
 protocol/device fixtures. The updated kernel passes 46 tests, including voice ticket scope/replay/expiry.
 Live Gemma/physical mic performance and public aaPanel/DNS/SSL deployment remain unverified.
 The previous static WEB_ROOT integration is superseded for the standard Laravel installation.
+
+
+## No-custom-credentials revision
+
+Kernel: 47 tests pass including real Unix transport and rejected TCP. Laravel: 12 tests pass,
+including retired-field migration with no prompts and generation of a missing app key despite stale
+configuration. Five JS voice-state tests and browser fixtures pass. Nginx site authentication,
+Laravel CSRF, cURL streaming and real kernel voice-ticket use were checked end to end over a private
+Unix socket. There is no backend token, custom web password hash or user timeout field. Target-host
+service permissions, physical voice/model performance and real aaPanel/DNS/SSL still need verification.

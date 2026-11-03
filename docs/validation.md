@@ -57,3 +57,16 @@ synthetic interruption, mic release, mobile layout and logout. A representative 
 passed syntax validation. Upstream kernel/audio fixtures are explicitly synthetic: real target
 inference, microphone acoustics, DNS, certificate issuance and aaPanel deployment are not claimed.
 Details: web-interface branch deploy/VALIDATION.md.
+
+
+## Private-socket revision
+
+47 kernel tests, 12 Laravel tests and five JS voice-state tests pass. The kernel rejects actual TCP
+requests even with forged forwarding headers, while no-token Unix requests succeed. Laravel enforces
+the aaPanel perimeter, rejects client header spoofing, migrates old fields without password prompts
+and preserves/generates app keys correctly. A real Nginx-authenticated local site, PHP cURL bridge and
+updated kernel passed JSON/CSRF/ticket/SSE checks over a private socket; first frame was about 40ms
+before a delayed test reply completed. Browser automatic speech/interruption tests use synthetic audio.
+The integration PHP router models trusted FastCGI parameters; no remote aaPanel host was provisioned.
+Source service scripts were linted/preflighted but not installed on the user's machine. Package work
+remains paused. Current behavior supersedes older token/login reports above.

@@ -1,72 +1,63 @@
-# One backend, multiple clients
+# Kernel and browser API contracts
 
-All data endpoints require `Authorization: Bearer <your backend token>`. `/v1/health`, contract
-metadata and static client files are public, but contain no user data. Model API keys do not exist.
-Use HTTPS/WSS outside localhost. Store tokens in an OS keychain for native clients; the reference
-browser holds its token only in memory. Never put a token in a URL or vendor key in client code.
+The kernel is private Unix-socket HTTP, not a public TCP API. The server identity is the configured
+owner and transport access is restricted by socket-directory permissions. There is no persistent
+backend bearer token. The supplied startup/service commands disable proxy header rewriting.
+Requests arriving over TCP fail with 403 even with forged forwarding or Authorization headers.
+
+## Public website
+
+Laravel serves the browser behind aaPanel/Nginx Password Access. It trusts only configured FastCGI
+server parameters for the authenticated site user, never client-supplied headers. Production requests
+without the protection marker/user are rejected. There is no custom Laravel login/password route.
+Local development at a loopback address with APP_ENV=local is supported explicitly.
+
+- GET /api/providers: selected non-secret assistant/model metadata.
+- POST /api/chat/stream: validated text/session/mode input; streamed SSE from the private kernel.
+- POST /api/voice/ticket: automatic one-use voice ticket, expires in 30 seconds.
+
+POSTs require Laravel's session/CSRF protection. The browser keeps no persistent backend credential.
+PHP cURL uses CLIFFORD_SOCKET_PATH for both JSON and streamed responses, with no TCP fallback.
+The only public kernel proxy is the voice-only WebSocket location and it requires a minted ticket.
+
+## Private kernel routes
 
 | Route | Contract |
 | --- | --- |
-| POST `/v1/chat` | `{text, session_id?, mode?}` → session ID and event list |
-| POST `/v1/chat/stream` | Same input → SSE text/events |
-| GET `/v1/providers` | Assistant/wake names, configured model and speech availability |
-| GET `/v1/providers/check` | Live Ollama reachability and selected model presence |
-| GET `/v1/sessions`, `/v1/sessions/{id}` | Conversation continuity across devices |
-| GET/POST `/v1/memory`, PUT/DELETE `/v1/memory/{id}` | Explicit memory management |
-| GET `/v1/tools`, POST `/v1/tools/execute` | Schemas and bounded, permission-aware execution |
-| GET `/v1/approvals`, POST `/v1/approvals/{id}/decision` | Inspect and decide exact stored actions |
-| GET/POST `/v1/tasks`, GET `/v1/tasks/{id}` | Durable typed plans/progress |
-| POST `/v1/tasks/{id}/run`, `/cancel` | Explicit execution/cancellation |
-| POST `/v1/plans/propose` | Gemma-generated plan, validated before storage; no execution |
-| GET `/v1/platforms` | Operator-configured MCP platform status |
-| POST `/v1/platforms/{name}/connect`, `/disconnect` | Discover explicitly allowed tools or revoke them |
-| WS `/v1/realtime` | Text streaming and cancellation |
-| WS `/v1/voice/listen` | Offline streaming transcription from mono PCM16 audio |
+| GET /v1/health | Process/database health |
+| GET /v1/providers, /v1/providers/check | Metadata and actual Ollama/model presence |
+| POST /v1/chat, /v1/chat/stream | Conversation response or SSE |
+| GET /v1/sessions, /v1/sessions/{id} | Completed turns |
+| GET/POST /v1/memory, PUT/DELETE /v1/memory/{id} | Explicit owner memory CRUD |
+| GET /v1/tools, POST /v1/tools/execute | Validated, permission-aware tools |
+| GET /v1/approvals, POST /v1/approvals/{id}/decision | Inspect/decide exact stored actions |
+| GET/POST /v1/tasks, GET /v1/tasks/{id} | Typed persisted plans/progress |
+| POST /v1/tasks/{id}/run, /cancel | Explicit execution/cancellation |
+| POST /v1/plans/propose | Validated model-generated plan; no automatic execution |
+| GET /v1/platforms, POST /v1/platforms/{name}/connect, /disconnect | Operator-selected MCP grants |
+| POST /v1/voice/tickets | One-use, voice-only ticket |
+| WS /v1/realtime | Private-socket text chat/cancellation; no credential frame |
+| WS /v1/voice/listen | Ticket-authenticated PCM transcription |
 
-Chat events include `type`, `id`, `timestamp`, `session_id`, `correlation_id` and structured `payload`.
-Emitted types include `session.started`, `message.received`, `assistant.delta`, `assistant.completed`,
-`error`, and WebSocket control `task.cancelled`. An HTTP 200 stream is not a success receipt: require
-`assistant.completed`. The session ID is shared across desktop/phone/watch clients as needed.
-The server persists completed turns. Abort HTTP or send `{"type":"cancel"}` on the text socket to
-cancel generation. A disconnect racing with a final commit can still leave a completed pair; check
-session history before retrying. SSE replay/Last-Event-ID resumption is not implemented.
+Chat events carry type, id, timestamp, session_id, correlation_id and payload. Emitted types include
+session.started, message.received, assistant.delta, assistant.completed and error. An HTTP 200 stream
+is not a completion receipt: require assistant.completed and handle error. Abort requests to cancel;
+a disconnect racing with commit may still leave a completed pair, so inspect session history before
+retrying. Last-Event-ID replay is not implemented.
 
-## Voice protocol
+## Voice
 
-1. Open WSS `/v1/voice/listen` and send `{"token":"<backend token>"}` as the first JSON frame
-   within 10 seconds. Authentication is not placed in the URL.
-2. Wait for `audio.ready`. Its payload specifies 16,000Hz, one channel, signed 16-bit little-endian PCM.
-3. Send binary PCM frames (even byte length, at most 16,000 bytes each). Do not send WAV headers,
-   compressed audio, browser MediaRecorder WebM, or floating point data to this socket.
-4. Receive `audio.transcript` events with `{text, final}`. Partial results are informational; only
-   final results should submit a completed turn. `speech_model_not_installed` is a real setup error.
-5. Stop capture and close the socket when disabled. Raw audio and unused partials are not persisted.
+The browser POSTs to Laravel for a ticket, then opens /clifford-voice on the HTTPS site's WSS origin.
+Its first JSON frame is {"ticket":"..."}; never put credentials in the URL. Nginx proxies that path
+to /v1/voice/listen over the private socket. The ticket is one-use, expires in 30 seconds and does
+not grant general API access. Ticket state is process-local, so use one kernel worker.
 
-The client owns wake gating and playback cancellation. The supplied `WakeGate` preserves a sentence
-beginning with “Clifford”, and arms the next sentence after a wake-only utterance. Mic energy during
-playback cancels speech and text before the final replacement transcript arrives. Automatic speech
-uses local device voices; no text is sent to an external TTS vendor. A native phone/watch client can
-implement this same lifecycle with platform audio APIs and speech synthesis. No particular watch
-browser or background-microphone capability is assumed.
+Wait for audio.ready, then send mono signed 16-bit little-endian PCM at 16kHz, even-sized binary frames
+up to 16,000 bytes. Do not send compressed MediaRecorder WebM/WAV headers. audio.transcript events
+contain text and final. Raw audio and unused partials are not persisted. Wake gating preserves a
+complete Clifford-prefixed sentence; wake-only arms the next sentence for 15 seconds. Client speech
+output uses installed device voices, and mic energy can interrupt playback/generation. Initial mic
+permission and real acoustic testing are necessary. Headphones improve echo isolation.
 
-The first reference-client microphone permission and audio initialization require a user gesture.
-That is a browser/OS permission rule, not a limitation that changing the model or cloud sandbox removes.
-A native app would also need microphone permission and platform-specific background entitlements.
-
-
-## Laravel browser bridge
-
-The web-interface branch now serves a Laravel application. Browser owners sign in through `/login`;
-a Laravel session and CSRF token protect `/api/providers`, POST `/api/chat/stream`, and
-POST `/api/voice/ticket`. The long-lived kernel token stays in Laravel's private environment and is
-used only on server-to-server requests. Logout invalidates the web session. No public signup exists.
-
-The backend's authenticated POST `/v1/voice/tickets` creates a 30-second, one-use, voice-only ticket.
-Laravel returns that ticket plus the relative public socket path `/clifford-voice`. The browser sends
-`{"ticket":"..."}` as the first WebSocket frame; aaPanel's Nginx proxies only that socket path to
-`/v1/voice/listen`. Tickets cannot authenticate REST APIs, expire quickly and cannot be replayed.
-They are process-local, so keep one kernel worker. Existing native token-authenticated clients remain
-supported. No credential is placed in a WebSocket query string. The PCM/transcript contract is unchanged.
-
-See the web branch's deploy/aapanel-nginx.conf for rewrite, socket, buffering and timeout settings.
-Gemma, Vosk and database persistence remain in the kernel; PHP does not host the model.
+Native phone/watch clients are not implemented. Future clients must use an appropriate protected
+web gateway; the former direct TCP/bearer kernel protocol is intentionally no longer exposed.

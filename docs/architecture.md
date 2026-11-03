@@ -39,3 +39,14 @@ web database is needed. Server-side kernel credentials never enter browser HTML/
 Short-lived single-use tickets allow only the Nginx-proxied voice socket; all other kernel access
 stays behind the PHP server's explicit proxy routes. aaPanel's public root is the Laravel public/
 directory, not the kernel checkout. Kernel WEB_ROOT stays empty for this deployment.
+
+
+## Current access boundary
+
+Persistent kernel and custom web-password settings have been removed. The kernel accepts only its
+filesystem-protected Unix socket and rejects TCP transports. Laravel uses cURL over that socket,
+with internally bounded requests and no URL/token fallback. aaPanel site access authenticates the
+public website; trusted FastCGI marker/user parameters enforce that perimeter in Laravel. Existing
+app encryption keys are preserved; first-time setup generates the key automatically, even when
+cached configuration previously held another key. Earlier owner-login/bearer descriptions above
+refer to the superseded version; current contracts are in docs/api.md and docs/aapanel.md.

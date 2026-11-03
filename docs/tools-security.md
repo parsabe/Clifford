@@ -35,3 +35,15 @@ The cloud coding sandbox and network proxy are platform infrastructure, separate
 application permissions. Approved test commands can use local sockets outside the command sandbox.
 You do not need to disable a sandbox on your own Ubuntu deployment. Cloud model download hostnames
 need environment network settings; a proxy denial is not an Ollama or application bug.
+
+
+## Current server access model
+
+The persistent backend token/custom web password design is retired. Only the configured private
+Unix socket is accepted by the kernel; socket directory ACLs grant PHP/Nginx service access.
+Laravel sends no Authorization header to the kernel and has no custom login route. aaPanel/Nginx
+Password Access must protect all public paths, and FastCGI parameters attest the authenticated site
+user. Headers supplied by clients cannot satisfy that marker. Do not set the marker before enabling
+site protection. Laravel CSRF remains required; automatic voice tickets are short-lived and scoped.
+Use the supplied startup commands with proxy rewriting disabled. Direct TCP publication is rejected.
+The tool registry, file boundaries and action-specific approvals remain enforced independently.
