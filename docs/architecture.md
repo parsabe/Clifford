@@ -1,11 +1,11 @@
 # Architecture and persistence
 
-`clifford/api.py` handles authenticated transport. `engine.py` handles recent conversation,
+`clifford/api.py` on `kernel` handles authenticated transport. `engine.py` handles recent conversation,
 explicit memory retrieval, bounded specialist plan proposals and sequential dependency execution.
 `providers/llm.py` calls the native Ollama `/api/chat` NDJSON protocol with `gemma3:12b`, a small
 configured context window, bounded retries before emitted text, and no cloud fallback.
 `providers/speech.py` uses a cached offline Vosk model and separate recognizers per listening socket.
-`static/voice.js` separates wake gating, PCM conversion, local speech output and capture lifecycle.
+`web/voice.js` on `web-interface` separates wake gating, PCM conversion, local speech output and capture lifecycle.
 `platforms.py` uses the official MCP SDK; `tools.py` remains the central schema/approval boundary.
 
 SQLAlchemy models and frozen Alembic migrations store owner identities, sessions, completed turn

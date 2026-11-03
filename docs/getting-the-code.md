@@ -1,22 +1,18 @@
-# Downloading the source
+# Download component branches
 
-The project repository is https://github.com/parsabe/Clifford, on the `master` branch.
-On GitHub, choose **Code → Download ZIP**, then extract the downloaded archive.
-Alternatively:
+The master branch intentionally contains the README branch index, not a merged application tree.
+Select a component using GitHub's branch selector, then choose **Code → Download ZIP**.
 
-```sh
-git clone https://github.com/parsabe/Clifford.git
-cd Clifford
-```
+| Component | Branch | Source ZIP |
+| --- | --- | --- |
+| Backend | kernel | [Download](https://github.com/parsabe/Clifford/archive/refs/heads/kernel.zip) |
+| Browser interface | web-interface | [Download](https://github.com/parsabe/Clifford/archive/refs/heads/web-interface.zip) |
+| Android client reservation | android-app | [Download](https://github.com/parsabe/Clifford/archive/refs/heads/android-app.zip) |
+| Linux deployment/package draft | linux-source | [Download](https://github.com/parsabe/Clifford/archive/refs/heads/linux-source.zip) |
+| Windows client reservation | windows-source | [Download](https://github.com/parsabe/Clifford/archive/refs/heads/windows-source.zip) |
+| Documentation | documentation | [Download](https://github.com/parsabe/Clifford/archive/refs/heads/documentation.zip) |
 
-Start with README.md for Ubuntu installation, local Gemma setup, hands-free voice, and server/client
-configuration. The source lives in `clifford/`; tests, migrations, scripts and deployment examples
-are included in their respective directories.
-
-The repository excludes private `.env` files, authentication tokens, databases, downloaded models,
-virtual environments and the uploaded prompt. Run `scripts/init_local.py` to generate your own private
-backend configuration, and follow the README to download Gemma and the offline speech model.
-No paid model-provider API key is required.
-
-A cloud environment snapshot and a GitHub commit are separate: future edits still need to be
-committed and pushed to appear in a GitHub download. Never force-push over someone else's changes.
+For development, clone with `git clone --branch <branch> --single-branch <repository> <directory>`.
+The kernel's `WEB_ROOT` points at the web branch's `web/` directory; no merge is needed.
+The original all-in-one source remains recoverable at commit `f230eaf` in Git history.
+No private `.env`, token, uploaded prompt, database, model or virtual environment belongs in Git.

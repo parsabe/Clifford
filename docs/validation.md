@@ -38,3 +38,11 @@ The draft API retained obsolete optional provider-key requirements and re-added 
 application. Delete these three requirements and their obsolete custom domains in environment
 settings; the available draft tool supports addition but not deletion of secret requirements.
 The new requested download domains are ollama.com, registry.ollama.ai, and alphacephei.com.
+
+
+## Separate branch validation
+
+After splitting the source, the kernel passed 44 Python tests, including new headless startup and
+external web-root checks. The web-interface branch passed its five Node voice tests and JavaScript
+syntax checks. Linux packaging drafts passed lint, Python compilation and maintainer-shell syntax
+checks only; no .deb was built or installation-tested. Android and Windows are reserved branches.

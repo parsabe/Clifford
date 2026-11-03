@@ -19,3 +19,10 @@
 
 Clifford is not fully verified for hands-free daily use until actual Gemma inference, microphone
 recognition, speaker echo behavior and interruption have passed on the intended server/client devices.
+
+## Branch organization
+
+The API is on `kernel`; the browser client and five Node voice tests are on `web-interface`.
+Linux package work is on `linux-source`, paused before building/testing until server details arrive.
+`android-app` and `windows-source` are explicitly reserved branches, not compilable native apps.
+The master branch only links the components; no component branch has been merged into it.
