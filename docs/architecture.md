@@ -1,52 +1,50 @@
 # Architecture and persistence
 
-`clifford/api.py` on `kernel` handles authenticated transport. `engine.py` handles recent conversation,
-explicit memory retrieval, bounded specialist plan proposals and sequential dependency execution.
-`providers/llm.py` calls the native Ollama `/api/chat` NDJSON protocol with `gemma3:12b`, a small
-configured context window, bounded retries before emitted text, and no cloud fallback.
-`providers/speech.py` uses a cached offline Vosk model and separate recognizers per listening socket.
-`public/console/voice.js` on `web-interface` separates wake gating, PCM conversion, local speech output and capture lifecycle.
-`platforms.py` uses the official MCP SDK; `tools.py` remains the central schema/approval boundary.
+`kernel` contains the headless Python AI service. `web-interface` contains the separate Laravel 13
+application and browser voice client. Branches are not merged. Gemma/Vosk stay on the server;
+aaPanel hosts Laravel's public/ directory and handles HTTPS/site access.
 
-SQLAlchemy models and frozen Alembic migrations store owner identities, sessions, completed turn
-pairs, explicit memories, plans, approvals, execution receipts and audit metadata. Token and account
-credentials are never database fields. The backend supports one configured owner and one worker.
-The owner's name is not inferred from the assistant name. Devices share authenticated state through
-the same APIs. Databases/tool results can contain personal content; use disk encryption and backups.
+## Access boundary
 
-Memory records support category (working/episodic/semantic/procedural), owner, scope, provenance,
-confidence, timestamps and expiry. The API supports create/read/update/delete. Chat does not
-indiscriminately promote personal information to durable memory. Retrieval is lexical word overlap
-among at most 500 recent owner records, not embeddings/vector search. Recent completed message pairs
-are bounded by count and a character budget. This budget is approximate, not exact Gemma tokenization.
-No summarizer, full paginated export or automatic memory consolidation is claimed.
+The kernel accepts only its configured private Unix socket, with proxy-header rewriting disabled.
+Filesystem ownership and the clifford-web service group restrict access. TCP requests fail closed.
+No persistent kernel secret, backend token, custom web-password hash or user timeout field is used.
 
-Plans have at most 12 steps with dependencies referring to earlier steps. They stop on failure or
-an approval boundary. Completed steps and pending approvals survive restart. Approval claiming is
-atomic and at-most-once; a crash after claiming can leave an unknown outcome that needs inspection,
-not an automatic retry. Cancellation revokes pending approvals. A final committed effect cannot be
-undone by cancelling afterward. Plans execute explicitly; unattended scheduling is absent.
+Laravel uses cURL over that socket, with bounded internal request/stream timeouts and no TCP fallback.
+aaPanel/Nginx site Password Access authenticates the public site. Trusted FastCGI marker/user fields
+assert that perimeter; client headers cannot supply them. They must only be configured after site-wide
+access protection is active. Laravel session/CSRF protection remains, using its automatically generated
+standard app encryption key. There is no separate custom Laravel login page or password prompt.
 
-Model output cannot execute tools or approve actions. MCP tools are registered only after an
-operator has configured a server and explicitly connected its allowlisted tools. Disconnect revokes
-pending platform approvals. Server-supplied annotations cannot grant read access or bypass approval.
-Platform URLs/account bridges require separate configuration; no platform is silently connected.
+Voice uses automatically minted, short-lived, single-use tickets for the Nginx voice-only socket proxy.
+Tickets are not settings users fill in and cannot grant general API access. Keep one kernel worker.
 
+## Components
 
-The browser component is now a Laravel 13 application: Blade console/login pages, a protected PHP
-SSE proxy, file sessions/cache, and an interactive private setup command. No Node compilation or
-web database is needed. Server-side kernel credentials never enter browser HTML/JavaScript.
-Short-lived single-use tickets allow only the Nginx-proxied voice socket; all other kernel access
-stays behind the PHP server's explicit proxy routes. aaPanel's public root is the Laravel public/
-directory, not the kernel checkout. Kernel WEB_ROOT stays empty for this deployment.
+The kernel API handles private HTTP/SSE/WebSocket transport and one configured owner. Engine code
+manages recent completed turns, explicit memory, typed specialist plan proposals and dependency
+execution. Ollama adapters use gemma3:12b with bounded context/retries and no cloud-model fallback.
+The offline Vosk adapter caches a model and creates independent recognizers for voice sessions.
+The web client implements wake gating, PCM16 resampling, local device speech and interruption.
 
+The tool registry enforces schema validation, configured roots/permissions and action-specific
+approval. MCP tools are registered only from operator-selected bridges and tool allowlists. Server
+annotations never grant privileges. Disconnect removes tools and revokes outstanding approvals.
+No email bridge or unrestricted shell/desktop tool is connected.
 
-## Current access boundary
+## Memory and recovery
 
-Persistent kernel and custom web-password settings have been removed. The kernel accepts only its
-filesystem-protected Unix socket and rejects TCP transports. Laravel uses cURL over that socket,
-with internally bounded requests and no URL/token fallback. aaPanel site access authenticates the
-public website; trusted FastCGI marker/user parameters enforce that perimeter in Laravel. Existing
-app encryption keys are preserved; first-time setup generates the key automatically, even when
-cached configuration previously held another key. Earlier owner-login/bearer descriptions above
-refer to the superseded version; current contracts are in docs/api.md and docs/aapanel.md.
+SQLAlchemy/Alembic persist owner identities, sessions, completed turn pairs, explicit memories,
+plans, approvals, execution receipts and audit identifiers. Data can contain personal information;
+protect disk/backups and apply a retention policy. Credentials are not ordinary database fields.
+
+Memory records support working/episodic/semantic/procedural categories, scope, provenance,
+confidence, timestamps and expiry. Writes are explicit, not automatic transcript promotion.
+Retrieval currently ranks lexical overlap among at most 500 recent owner records; no embedding
+index or automatic summarizer is claimed. Recent chat is bounded by count and a character budget.
+
+Plans contain at most 12 topologically ordered steps, stop on failure/approval, and resume explicitly.
+Completed steps and approvals persist across restarts. Approval claiming prevents replay; a crash
+can still leave an unknown outcome requiring inspection. Cancellation revokes pending approvals
+but cannot undo a committed action. There is no unattended scheduler or distributed worker system.
+Model output and retrieved content cannot approve or execute tools by themselves.

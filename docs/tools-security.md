@@ -1,49 +1,37 @@
-# Execution boundaries
+# Access, tools and security
 
-The server access token protects your private assistant; it is distinct from a model-vendor API key.
-No model/speech API key fields or cloud-model adapters remain. Do not disable backend authentication
-when accessing the server from a phone or another network.
+The current kernel is reachable only through a filesystem-protected Unix socket. Its supported
+startup/service commands disable proxy-header rewriting. TCP requests are rejected; forwarded
+headers or old bearer values cannot grant access. Socket directory ownership/group permissions
+must restrict local access to the intended services.
 
-Built-ins provide bounded arithmetic, UTC time, and UTF-8 file read/create within FILES_ROOT. Paths
-use directory descriptors and O_NOFOLLOW; traversal and symlinks cannot escape the root. File creation
-uses O_EXCL and read-back verification; existing files cannot be overwritten. No unrestricted shell
-or desktop tool is registered. Email is not configured.
+The public Laravel site uses aaPanel/Nginx Password Access, not a custom app password/hash. Its
+FastCGI protection/user fields are trusted server parameters, never HTTP headers from clients.
+Only configure the marker after site-wide protection is active, including the voice location.
+Laravel fails closed when that boundary is missing. CSRF remains required. Voice tickets are
+short-lived, one-use and voice-only; no persistent backend credential reaches the browser.
 
-Register a `Tool` with a Pydantic input schema, validated Result output, risk, permission name, handler
-and timeout. Optional remote JSON schemas are checked before validation. Async handlers have timeouts;
-synchronous built-ins are size-bounded but OS filesystem calls cannot be preempted. Do not add blocking
-network calls as synchronous handlers. Cancellation cannot undo an external side effect.
+Built-ins include bounded arithmetic, UTC time and UTF-8 file read/create within FILES_ROOT. Directory
+descriptors and O_NOFOLLOW prevent traversal/symlink escape. Creation is exclusive and read-back
+verified; existing targets cannot be overwritten. No unrestricted terminal or desktop tool is enabled.
 
-All Level 2+ actions require approval of exact stored arguments. A caller cannot submit its own
-`authorized=true`. Atomic claims prevent approval replay; foreign/pending ownership checks are
-server-side. Pending approvals do not currently expire automatically, so deny stale requests.
-Disconnecting a platform revokes its pending approvals. Unknown outcomes after a crash require
-inspection; exactly-once delivery is not promised.
+Tools have typed inputs/outputs, risk, permission, handler and timeout metadata. Async operations
+are bounded; synchronous filesystem calls cannot be preempted while in the OS. Network integrations
+must not be added as unbounded blocking handlers. Cancellation cannot undo external committed effects.
 
-Untrusted memory, documents, model output and MCP results cannot alter server authorization. Prompt
-instructions help linguistic behavior, but the architectural boundary is that chat has no execution
-or approval authority. Generated plans are validated and do not automatically run. Browser messages
-use textContent, not model-generated HTML. Tokens live only in browser memory.
+Level 2+ actions require exact stored-argument approval. Callers cannot submit authorized=true.
+Atomic claims reject replay; owner checks isolate records. Approvals have no automatic expiry yet,
+so deny stale actions explicitly. Platform disconnect revokes pending platform approvals. Unknown
+outcomes after a crash require inspection; exactly-once delivery is not promised.
 
-Raw microphone audio/partials are not persisted. Speech recognition runs on your backend server;
-recognized commands submitted to chat become persisted user messages. The browser releases its mic
-when voice is disabled or the page closes. It does not implement a hidden/background listener.
-Use TLS to protect audio and authentication in transit. Echo cancellation is device-dependent;
-headphones are recommended for reliable interruption.
+Memory, documents, model output and MCP results are untrusted data, not permission sources. The
+architectural boundary is that chat does not execute or approve actions. Generated plans must pass
+registry validation and explicit execution/approval. Browser model text is rendered as textContent.
 
-The cloud coding sandbox and network proxy are platform infrastructure, separate from these
-application permissions. Approved test commands can use local sockets outside the command sandbox.
-You do not need to disable a sandbox on your own Ubuntu deployment. Cloud model download hostnames
-need environment network settings; a proxy denial is not an Ollama or application bug.
+Raw microphone audio/unused partial transcripts are not persisted. Accepted commands become normal
+conversation messages. Disable voice or close the page to stop capture. Headphones improve acoustic
+interruption isolation; continuous background listening and native phone/watch apps are not provided.
 
-
-## Current server access model
-
-The persistent backend token/custom web password design is retired. Only the configured private
-Unix socket is accepted by the kernel; socket directory ACLs grant PHP/Nginx service access.
-Laravel sends no Authorization header to the kernel and has no custom login route. aaPanel/Nginx
-Password Access must protect all public paths, and FastCGI parameters attest the authenticated site
-user. Headers supplied by clients cannot satisfy that marker. Do not set the marker before enabling
-site protection. Laravel CSRF remains required; automatic voice tickets are short-lived and scoped.
-Use the supplied startup commands with proxy rewriting disabled. Direct TCP publication is rejected.
-The tool registry, file boundaries and action-specific approvals remain enforced independently.
+The cloud command sandbox/proxy are separate from application permissions. Use approved local test
+execution where required; do not disable TLS verification or bypass restricted download destinations.
+The target aaPanel site's service permissions, TLS and actual model/voice performance need verification.
