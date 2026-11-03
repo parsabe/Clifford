@@ -27,3 +27,12 @@ Debian service and keeps its development HTTP port bound only to loopback.
 [Web interface](https://github.com/parsabe/Clifford/tree/web-interface) ·
 [Documentation](https://github.com/parsabe/Clifford/tree/documentation) ·
 [Branch index](https://github.com/parsabe/Clifford/tree/master)
+
+## Laravel architecture update
+
+The `web-interface` branch is now a Laravel 13 application deployed separately through aaPanel
+with its document root at public/. The paused Debian draft predates this conversion and still
+assumes a static web bundle. Its builder is not ready for the new architecture and must be revised
+before any package is built. Package work remains paused until the server details are supplied.
+Use the web branch's aaPanel guide for the website; do not run the Caddy example alongside aaPanel
+on the same public ports. A future backend package can remain private behind aaPanel's Nginx proxy.
