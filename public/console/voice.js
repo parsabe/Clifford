@@ -65,8 +65,8 @@ export class DeviceSpeech {
 }
 
 export class HandsFree {
-  constructor({token, wake, submit, interrupt, speaking, status, failure}) {
-    this.token = token; this.gate = new WakeGate(wake); this.submit = submit;
+  constructor({ticket, wake, submit, interrupt, speaking, status, failure}) {
+    this.ticket = ticket; this.gate = new WakeGate(wake); this.submit = submit;
     this.interrupt = interrupt; this.speaking = speaking; this.status = status;
     this.failure = failure; this.enabled = false; this.resources = [];
   }
@@ -85,11 +85,13 @@ export class HandsFree {
       this.source = this.context.createMediaStreamSource(this.stream);
       this.worklet = new AudioWorkletNode(this.context, 'pcm-capture');
       this.muted = this.context.createGain(); this.muted.gain.value = 0;
+      const credentials = await this.ticket();
+      if (!this.enabled) { this.stop(); return; }
       const scheme = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      this.socket = new WebSocket(`${scheme}//${location.host}/v1/voice/listen`);
+      this.socket = new WebSocket(`${scheme}//${location.host}${credentials.websocket_path}`);
       const ready = new Promise((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error('Speech recognition did not become ready.')), 30000);
-        this.socket.onopen = () => this.socket.send(JSON.stringify({token: this.token()}));
+        this.socket.onopen = () => this.socket.send(JSON.stringify({ticket: credentials.ticket}));
         this.socket.onmessage = e => {
           const event = JSON.parse(e.data);
           if (event.type === 'audio.ready') { clearTimeout(timer); resolve(); }

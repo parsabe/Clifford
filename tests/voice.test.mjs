@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-const code = await readFile(new URL('../web/voice.js', import.meta.url), 'utf8');
+const code = await readFile(new URL('../public/console/voice.js', import.meta.url), 'utf8');
 const { WakeGate, PCMResampler, DeviceSpeech } = await import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'));
 test('wake phrase preserves the complete following sentence', () => {
   const gate = new WakeGate('Clifford', () => 1000);

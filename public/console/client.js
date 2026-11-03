@@ -1,10 +1,11 @@
 import { DeviceSpeech, HandsFree } from '/console/voice.js';
 const $ = id => document.getElementById(id);
-let token = '', session = null, abort = null, busy = false, lastReply = '', activeRun = Promise.resolve();
+let session = null, abort = null, busy = false, lastReply = '', activeRun = Promise.resolve();
 let submitVersion = 0;
 let assistantName = 'Clifford', wakePhrase = 'Clifford', voiceEnabled = false;
 const speech = new DeviceSpeech();
-const headers = () => ({Authorization: `Bearer ${token}`, 'Content-Type': 'application/json'});
+const headers = () => ({'Content-Type': 'application/json', 'Accept':'application/json',
+  'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content});
 function error(text) { $('error').textContent = String(text); }
 function message(role, text) {
   const row = document.createElement('div'); row.className = 'message ' + role;
@@ -14,13 +15,16 @@ function message(role, text) {
 }
 function state(running) { busy = running; $('send').disabled = running; $('stop').disabled = !running && !speech.speaking(); $('new').disabled = running; $('state').textContent = running ? 'Thinking with you' : voiceEnabled ? `Listening for “${wakePhrase}”` : 'Ready when you are'; }
 function interrupt() { speech.cancel(); abort?.abort(); }
-const handsFree = new HandsFree({token: () => token, wake: wakePhrase,
+const handsFree = new HandsFree({ticket: async () => {
+    const response = await fetch('/api/voice/ticket', {method:'POST',headers:headers()});
+    if (!response.ok) throw new Error('Voice connection is unavailable. Check the kernel and aaPanel voice proxy.');
+    return response.json();
+  }, wake: wakePhrase,
   submit: text => submit(text), interrupt, speaking: () => speech.speaking() || busy,
   status: text => { $('voiceStatus').textContent = text; $('voice').textContent = handsFree.enabled ? 'Disable voice' : 'Enable voice'; if (!handsFree.enabled) voiceEnabled = false; },
   failure: text => error(text)});
 $('voice').onclick = async () => {
   if (handsFree.enabled) { interrupt(); handsFree.stop(); voiceEnabled = false; return; }
-  if (!token) { $('connect').showModal(); return; }
   if (!speech.supported()) { error('No local speech voice is available on this device. Install an OS speech voice first.'); return; }
   try {
     // This explicit one-time gesture grants microphone consent and initializes local audio.
@@ -28,24 +32,21 @@ $('voice').onclick = async () => {
     await handsFree.start();
   } catch (e) { voiceEnabled = false; error(e.message); }
 };
-$('settings').onclick = () => $('connect').showModal();
-$('close').onclick = () => $('connect').close();
-$('save').onclick = async () => {
-  const candidate = $('token').value;
+async function connect() {
   try {
-    const response = await fetch('/v1/providers', {headers: {Authorization: `Bearer ${candidate}`}});
-    if (!response.ok) throw new Error('Connection failed. Check the backend access token.');
-    const config = await response.json(); interrupt(); handsFree.stop(); token = candidate;
-    assistantName = config.assistant_name; wakePhrase = config.wake_phrase;
-    $('token').value = ''; $('connection').textContent = 'Connected'; $('connectError').textContent = ''; $('connect').close();
-  } catch (e) { $('connectError').textContent = e.message; }
-};
+    const response = await fetch('/api/providers', {headers: headers()});
+    if (response.status === 401) { location.assign('/login'); return; }
+    if (!response.ok) throw new Error('Kernel unavailable. Check the server connection settings.');
+    const config = await response.json(); assistantName = config.assistant_name; wakePhrase = config.wake_phrase;
+    $('connection').textContent = 'Connected';
+  } catch (e) { $('connection').textContent = 'Kernel unavailable'; error(e.message); }
+}
+connect();
 $('new').onclick = () => { interrupt(); session = null; lastReply = ''; $('messages').replaceChildren(); error(''); };
 $('stop').onclick = interrupt;
 $('prompt').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!busy) $('chat').requestSubmit(); } };
 $('chat').onsubmit = e => { e.preventDefault(); const text = $('prompt').value.trim(); if (!text || busy) return; $('prompt').value = ''; submit(text); };
 async function submit(text) {
-  if (!token) { $('connect').showModal(); return; }
   const version = ++submitVersion; interrupt(); await activeRun;
   if (version !== submitVersion) return;
   activeRun = run(text); await activeRun;
@@ -53,7 +54,7 @@ async function submit(text) {
 async function run(text) {
   message('user', text); const output = message('assistant', ''); lastReply = ''; error(''); state(true); abort = new AbortController();
   try {
-    const response = await fetch('/v1/chat/stream', {method: 'POST', headers: headers(), signal: abort.signal, body: JSON.stringify({text, session_id: session})});
+    const response = await fetch('/api/chat/stream', {method: 'POST', headers: headers(), signal: abort.signal, body: JSON.stringify({text, session_id: session})});
     if (!response.ok) throw new Error(`Request failed (${response.status}).`);
     const reader = response.body.getReader(), decoder = new TextDecoder(); let buffer = '', completed = false;
     while (true) {
@@ -76,8 +77,7 @@ async function run(text) {
   } catch (e) { speech.cancel(); if (e.name !== 'AbortError') error(e.message); }
   finally { state(false); abort = null; }
 }
-addEventListener('pagehide', () => { interrupt(); handsFree.stop(); token = ''; });
-fetch('/v1/health').then(r => { $('connection').textContent = r.ok ? 'Backend online' : 'Backend unavailable'; }).catch(() => { $('connection').textContent = 'Backend unavailable'; });
+addEventListener('pagehide', () => { interrupt(); handsFree.stop(); });
 // Procedural layered cyan ribbons inspired by the supplied image. This is an ambient
 // visualization, not an audio analyser or evidence that a microphone is active.
 const canvas = $('wave'), ctx = canvas.getContext('2d'), reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
