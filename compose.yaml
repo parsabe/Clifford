@@ -1,0 +1,22 @@
+services:
+  clifford:
+    build: .
+    env_file: .env
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - clifford-data:/app/data
+    depends_on:
+      - ollama
+    restart: unless-stopped
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama-models:/root/.ollama
+    # No public model port. Only the backend contacts this service.
+    restart: unless-stopped
+volumes:
+  clifford-data:
+  ollama-models:
