@@ -2,7 +2,6 @@
 
 import argparse
 import os
-import secrets
 from pathlib import Path
 
 
@@ -11,8 +10,8 @@ def initialize(path: Path):
         raise RuntimeError("Refusing a symlink for the private configuration")
     if path.exists():
         return False
-    content = f"""# Private backend login token, not a paid model API key.
-CLIFFORD_AUTH_SECRET={secrets.token_urlsafe(32)}
+    content = """# Private kernel transport; no shared backend credential.
+CLIFFORD_SOCKET_PATH=/run/clifford/api.sock
 CLIFFORD_USER_ID=owner
 ASSISTANT_NAME=Clifford
 WAKE_PHRASE=Clifford

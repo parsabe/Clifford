@@ -15,7 +15,7 @@ RuntimeDirectoryMode=0750
 StateDirectory=clifford
 StateDirectoryMode=0700
 ExecStartPre=/opt/clifford/venv/bin/python -m alembic -c /usr/lib/clifford/alembic.ini upgrade head
-ExecStart=/opt/clifford/venv/bin/python -m uvicorn clifford.api:app --uds /run/clifford/api.sock --workers 1 --ws-max-size 128000 --proxy-headers --forwarded-allow-ips=* --no-access-log
+ExecStart=/opt/clifford/venv/bin/python -m uvicorn clifford.api:app --uds /run/clifford/api.sock --workers 1 --ws-max-size 128000 --no-proxy-headers --no-access-log
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=30

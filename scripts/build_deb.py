@@ -49,6 +49,9 @@ def copy(source, destination, executable=False):
 
 
 def build(output, source, web_source):
+    raise RuntimeError(
+        "Debian build is paused pending target OS/architecture and the aaPanel Unix-socket redesign"
+    )
     global ROOT
     packaging_root = ROOT
     ROOT = source.resolve()

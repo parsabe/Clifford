@@ -1,6 +1,4 @@
+# Legacy direct-kernel publication is disabled. Deploy Laravel through aaPanel.
 clifford.parsabe.com {
-    encode zstd gzip
-    reverse_proxy unix//run/clifford/api.sock {
-        flush_interval -1
-    }
+    respond "Website setup is incomplete." 503
 }

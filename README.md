@@ -36,3 +36,13 @@ assumes a static web bundle. Its builder is not ready for the new architecture a
 before any package is built. Package work remains paused until the server details are supplied.
 Use the web branch's aaPanel guide for the website; do not run the Caddy example alongside aaPanel
 on the same public ports. A future backend package can remain private behind aaPanel's Nginx proxy.
+
+
+## Private-socket update
+
+Shared credential generation and the old token command are removed from these drafts. The legacy
+Caddy direct-kernel proxy is disabled to prevent publishing no-token APIs. The draft builder is
+explicitly paused until the target platform is supplied and packaging is adapted to the current
+Laravel/aaPanel architecture. Docker examples also predate Unix-only access and must not be used as
+current installation instructions. Use the kernel branch source-service helper and web branch aaPanel
+guide now. No .deb has been built, activated or published by this revision.

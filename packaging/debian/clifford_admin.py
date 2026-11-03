@@ -14,15 +14,6 @@ CADDYFILE = Path("/etc/caddy/Caddyfile")
 IMPORT = "import /etc/caddy/conf.d/*.caddy"
 
 
-def token(path=CONFIG):
-    for line in path.read_text().splitlines():
-        if line.startswith("CLIFFORD_AUTH_SECRET="):
-            value = line.partition("=")[2].strip().strip("\"'")
-            if len(value) >= 32:
-                return value
-    raise RuntimeError("Backend token is missing or invalid")
-
-
 def enable_site(path=CADDYFILE, run=subprocess.run):
     if path.is_symlink():
         raise RuntimeError("Caddyfile is a symlink; configure the import manually")
@@ -62,14 +53,11 @@ def enable_site(path=CADDYFILE, run=subprocess.run):
 
 def main():
     parser = argparse.ArgumentParser(description="Manage the installed Clifford service")
-    parser.add_argument("command", choices=["status", "token", "download-voice", "enable-site"])
+    parser.add_argument("command", choices=["status", "download-voice"])
     args = parser.parse_args()
     if os.geteuid() != 0:
         parser.exit(1, "Run this administrator command with sudo.\n")
-    if args.command == "token":
-        # Deliberate local token retrieval, never a service log or package artifact.
-        print(token())
-    elif args.command == "download-voice":
+    if args.command == "download-voice":
         subprocess.run(
             [
                 "runuser",
@@ -84,11 +72,6 @@ def main():
             check=True,
         )
         subprocess.run(["systemctl", "restart", "clifford.service"], check=True)
-    elif args.command == "enable-site":
-        enable_site()
-        print("Caddy configured for https://clifford.parsabe.com/console/.")
-        print("DNS must point at this server and TCP ports 80/443 must be reachable.")
-        print("Check certificate issuance with: sudo journalctl -u caddy -n 50 --no-pager")
     else:
         subprocess.run(["systemctl", "--no-pager", "status", "clifford.service"], check=False)
         health = subprocess.run(
