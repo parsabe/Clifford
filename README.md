@@ -3,6 +3,7 @@
 Documentation is maintained on this branch independently of code branches.
 
 - [Installation and component checkouts](docs/installation.md)
+- [Laravel and aaPanel setup](docs/aapanel.md)
 - [API, mobile/watch contracts and voice protocol](docs/api.md)
 - [Architecture and memory](docs/architecture.md)
 - [Tool permissions and security](docs/tools-security.md)

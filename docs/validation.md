@@ -46,3 +46,14 @@ After splitting the source, the kernel passed 44 Python tests, including new hea
 external web-root checks. The web-interface branch passed its five Node voice tests and JavaScript
 syntax checks. Linux packaging drafts passed lint, Python compilation and maintainer-shell syntax
 checks only; no .deb was built or installation-tested. Android and Windows are reserved branches.
+
+
+## Laravel revision
+
+Kernel voice-ticket changes pass 46 Python tests. The PHP 8.3 Laravel application passes 11 feature
+tests with 59 assertions, five Node voice-state tests, Composer/platform checks, Pint and optimization.
+Actual local HTTP/browser checks cover login, CSRF enforcement, SSE, ticket format, automatic speech,
+synthetic interruption, mic release, mobile layout and logout. A representative aaPanel Nginx config
+passed syntax validation. Upstream kernel/audio fixtures are explicitly synthetic: real target
+inference, microphone acoustics, DNS, certificate issuance and aaPanel deployment are not claimed.
+Details: web-interface branch deploy/VALIDATION.md.

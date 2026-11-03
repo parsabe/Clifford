@@ -26,3 +26,13 @@ The API is on `kernel`; the browser client and five Node voice tests are on `web
 Linux package work is on `linux-source`, paused before building/testing until server details arrive.
 `android-app` and `windows-source` are explicitly reserved branches, not compilable native apps.
 The master branch only links the components; no component branch has been merged into it.
+
+
+## Laravel web conversion
+
+The web-interface branch implements a Laravel 13/PHP 8.3+ app, owner login, server-side credential
+proxy, Blade console, interactive installation, live readiness diagnostics, and aaPanel/Nginx examples.
+It passes 11 feature tests (59 assertions), five voice-state tests and browser checks using explicit
+protocol/device fixtures. The updated kernel passes 46 tests, including voice ticket scope/replay/expiry.
+Live Gemma/physical mic performance and public aaPanel/DNS/SSL deployment remain unverified.
+The previous static WEB_ROOT integration is superseded for the standard Laravel installation.

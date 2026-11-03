@@ -5,7 +5,7 @@ explicit memory retrieval, bounded specialist plan proposals and sequential depe
 `providers/llm.py` calls the native Ollama `/api/chat` NDJSON protocol with `gemma3:12b`, a small
 configured context window, bounded retries before emitted text, and no cloud fallback.
 `providers/speech.py` uses a cached offline Vosk model and separate recognizers per listening socket.
-`web/voice.js` on `web-interface` separates wake gating, PCM conversion, local speech output and capture lifecycle.
+`public/console/voice.js` on `web-interface` separates wake gating, PCM conversion, local speech output and capture lifecycle.
 `platforms.py` uses the official MCP SDK; `tools.py` remains the central schema/approval boundary.
 
 SQLAlchemy models and frozen Alembic migrations store owner identities, sessions, completed turn
@@ -31,3 +31,11 @@ Model output cannot execute tools or approve actions. MCP tools are registered o
 operator has configured a server and explicitly connected its allowlisted tools. Disconnect revokes
 pending platform approvals. Server-supplied annotations cannot grant read access or bypass approval.
 Platform URLs/account bridges require separate configuration; no platform is silently connected.
+
+
+The browser component is now a Laravel 13 application: Blade console/login pages, a protected PHP
+SSE proxy, file sessions/cache, and an interactive private setup command. No Node compilation or
+web database is needed. Server-side kernel credentials never enter browser HTML/JavaScript.
+Short-lived single-use tickets allow only the Nginx-proxied voice socket; all other kernel access
+stays behind the PHP server's explicit proxy routes. aaPanel's public root is the Laravel public/
+directory, not the kernel checkout. Kernel WEB_ROOT stays empty for this deployment.

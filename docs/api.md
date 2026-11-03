@@ -52,3 +52,21 @@ browser or background-microphone capability is assumed.
 The first reference-client microphone permission and audio initialization require a user gesture.
 That is a browser/OS permission rule, not a limitation that changing the model or cloud sandbox removes.
 A native app would also need microphone permission and platform-specific background entitlements.
+
+
+## Laravel browser bridge
+
+The web-interface branch now serves a Laravel application. Browser owners sign in through `/login`;
+a Laravel session and CSRF token protect `/api/providers`, POST `/api/chat/stream`, and
+POST `/api/voice/ticket`. The long-lived kernel token stays in Laravel's private environment and is
+used only on server-to-server requests. Logout invalidates the web session. No public signup exists.
+
+The backend's authenticated POST `/v1/voice/tickets` creates a 30-second, one-use, voice-only ticket.
+Laravel returns that ticket plus the relative public socket path `/clifford-voice`. The browser sends
+`{"ticket":"..."}` as the first WebSocket frame; aaPanel's Nginx proxies only that socket path to
+`/v1/voice/listen`. Tickets cannot authenticate REST APIs, expire quickly and cannot be replayed.
+They are process-local, so keep one kernel worker. Existing native token-authenticated clients remain
+supported. No credential is placed in a WebSocket query string. The PCM/transcript contract is unchanged.
+
+See the web branch's deploy/aapanel-nginx.conf for rewrite, socket, buffering and timeout settings.
+Gemma, Vosk and database persistence remain in the kernel; PHP does not host the model.

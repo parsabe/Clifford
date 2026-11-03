@@ -1,28 +1,37 @@
-# Install from separate component branches
+# Deploy the Laravel web app and separate AI kernel
 
-The master branch is a project index. Clone each component separately; do not merge them:
+The master branch is an index. The web-interface branch is now a Laravel 13/PHP 8.3+ application;
+the kernel branch remains a separate Python service. Do not merge the branches.
+
+Clone the web branch into an empty aaPanel site directory:
+
+```sh
+git clone --branch web-interface --single-branch https://github.com/parsabe/Clifford.git .
+composer install --no-dev --prefer-dist --optimize-autoloader
+cp .env.example .env  # only when absent
+php artisan clifford:install
+php artisan optimize
+php artisan clifford:check
+```
+
+Set aaPanel Running Directory to **public/**, select PHP 8.3+, enable HTTPS for
+**clifford.parsabe.com**, and add the Laravel rewrite and voice-only WebSocket proxy configuration.
+[Complete aaPanel instructions](aapanel.md) explain PHP permissions, buffering and timeouts.
+No Node build or web database is required. The owner login and kernel token are configured privately;
+the browser never receives the long-lived kernel token.
+
+Install/run the kernel in its own directory according to its README:
 
 ```sh
 git clone --branch kernel --single-branch https://github.com/parsabe/Clifford.git clifford-kernel
-git clone --branch web-interface --single-branch https://github.com/parsabe/Clifford.git clifford-web
 ```
 
-Follow the kernel README to install Python dependencies, Ollama/Gemma, the offline Vosk speech model
-and database migrations. In the kernel's private `.env`, set `WEB_ROOT` to the absolute path of
-`clifford-web/web`; restart the kernel to serve the browser client at `/console/`.
-No merge or frontend build is needed. The backend remains independently runnable without web files.
+Keep the kernel privately reachable, typically at 127.0.0.1:8000, with one worker. Update it to include
+POST /v1/voice/tickets. Leave its WEB_ROOT empty: Laravel now serves the web pages. Install local
+Ollama gemma3:12b and the Vosk speech model, and run its actual model readiness script. The separate
+Debian package effort remains paused pending Ubuntu/architecture details. aaPanel handles public
+ports 80/443 and certificates; do not run an additional conflicting Caddy listener.
 
-The source development script uses loopback port 8000. Linux package development is on `linux-source`
-and is paused until the server's Ubuntu release and CPU architecture are provided. Its proposed
-Debian service uses a private Unix socket behind Caddy for `clifford.parsabe.com`; no `.deb` or live
-SSL deployment has been verified yet. DNS must point at the server and ports 80/443 must be reachable
-before issuing a public certificate.
-
-A 12GB server may be tight for quantized Gemma 3 12B. Defaults use a small 2,048-token context and
-512-token output. A GPU is optional; response speed and actual memory fit need hardware verification.
-Paid model/speech API keys are not required. Protect access with the generated backend login token.
-
-After enabling microphone access once, say “Clifford, ...”. Replies speak automatically using a
-local device voice, and interruption cancels playback/generation. Real echo and recognition quality
-still need device testing. Phones need HTTPS for remote mic access. Native Android and Windows
-clients are reserved development branches, and no native watch app is included.
+A 12GB server may be tight for quantized Gemma 3 12B; small context settings are included. Real inference
+speed, recognition and speaker echo still need testing on your hardware. The Laravel conversion has
+passed feature and browser protocol-fixture checks, not a real deployment to your domain.

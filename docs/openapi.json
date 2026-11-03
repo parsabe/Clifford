@@ -924,6 +924,27 @@
           }
         }
       }
+    },
+    "/v1/voice/tickets": {
+      "post": {
+        "summary": "Voice Ticket",
+        "operationId": "voice_ticket_v1_voice_tickets_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
     }
   },
   "components": {
