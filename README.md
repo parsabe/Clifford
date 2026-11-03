@@ -18,22 +18,25 @@ Install Ollama separately, pull `gemma3:12b`, and install the offline speech mod
 `.venv/bin/python scripts/download_voice_model.py`. Run `.venv/bin/python scripts/check_local.py`
 to verify an actual model response, then start the backend with `./scripts/start.sh`.
 
-This kernel starts headless. To attach the browser client without merging branches:
+This kernel starts headless. The `web-interface` branch is now a **Laravel 13** application for
+PHP 8.3+ and aaPanel. Deploy it as a separate checkout with its document root set to `public/`.
+Keep this kernel running privately; configure the Laravel app's server-side kernel URL and token.
+Leave kernel `WEB_ROOT` empty when using Laravel. Do not point WEB_ROOT at the Laravel project.
 
-```sh
-# Run beside the kernel checkout, not inside it.
-git clone --branch web-interface --single-branch https://github.com/parsabe/Clifford.git clifford-web
-```
+Laravel proxies chat using its authenticated owner session and the server-held kernel token.
+For voice, authenticated POST `/v1/voice/tickets` issues a 30-second single-use ticket. Only
+`/v1/voice/listen` accepts that ticket (first WebSocket JSON frame, key `ticket`); it cannot call
+other APIs. The aaPanel Nginx voice-only proxy forwards the browser socket to that endpoint.
+Direct native clients can still use the existing token-authenticated voice protocol. Keep one
+kernel worker because ticket storage is process-local; restart invalidates pending tickets.
 
-Set `WEB_ROOT` in the kernel's private `.env` to the absolute path of `clifford-web/web`, then restart.
-The kernel serves those external static files at `/console/`; REST/SSE/WebSocket APIs remain independent.
-The local development script uses loopback port 8000. The pending Debian service uses a private Unix
-socket; packaging lives only on `linux-source` and is paused pending server OS/architecture details.
+The local development script uses loopback port 8000. The pending Debian service uses a private
+Unix socket; packaging lives on `linux-source` and is still paused pending server OS/architecture.
 
 ## Validation and status
 
 Run `.venv/bin/pytest -q`, `.venv/bin/ruff check .`, `.venv/bin/ruff format --check .`, and
-`.venv/bin/alembic check`. The browser voice tests live on `web-interface`.
+`.venv/bin/alembic check`. The Laravel feature tests and browser voice tests live on `web-interface`. The kernel suite passes 46 tests including ticket scope, replay and expiry checks.
 Gemma inference and physical microphone/echo performance still require verification on the target
 hardware. No email, native phone/watch app or unattended scheduler is configured.
 
