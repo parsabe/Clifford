@@ -29,7 +29,7 @@ case "$1" in
             deb-systemd-invoke start clifford.service || true
         fi
         echo "Clifford installed. Read /usr/share/doc/clifford-assistant/README.Debian."
-        echo "Run sudo clifford download-voice, then configure DNS and sudo clifford enable-site."
+        echo "This package draft is paused; use the kernel source service and aaPanel guide."
         ;;
     abort-upgrade|abort-remove|abort-deconfigure)
         if [ -d /run/systemd/system ]; then
