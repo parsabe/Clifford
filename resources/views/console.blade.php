@@ -8,7 +8,7 @@
 </style>
 </head>
 <body>
-<header><div class="brand"><span>◈</span> CLIFFORD</div><div class="status"><span class="dot"></span><span id="connection">Checking backend</span><form method="POST" action="{{ route('logout') }}">@csrf<button class="text-button" type="submit">Sign out ↗</button></form></div></header>
+<header><div class="brand"><span>◈</span> CLIFFORD</div><div class="status"><span class="dot"></span><span id="connection">Checking backend</span></div></header>
 <main class="workspace"><div class="eyebrow">Your personal intelligence</div><h1>A little clarity. <em>Infinite possibility.</em></h1><p class="subtitle">A space to think, remember, and move things forward.</p>
 <div id="visual" aria-hidden="true"><canvas id="wave"></canvas><div class="visual-caption" id="state">Ready when you are</div></div>
 <section class="panel" aria-label="Conversation"><div class="toolbar"><span class="tag">Conversation</span><div><button class="text-button" id="voice">Enable voice</button><button class="text-button" id="stop" disabled>Stop</button><button class="text-button" id="new">New session +</button></div></div><div id="messages" class="transcript" role="log" aria-live="polite"></div><div id="error" class="error" role="alert"></div><form id="chat" class="composer"><textarea id="prompt" aria-label="Message Clifford" placeholder="What’s on your mind?" rows="1" maxlength="12000" required></textarea><button class="send" id="send" title="Send message" aria-label="Send message">↑</button></form><div class="hint"><span>Enter to send · Shift + Enter for a new line</span><span id="voiceStatus" role="status">Microphone off</span></div></section>

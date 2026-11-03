@@ -35,7 +35,7 @@ $('voice').onclick = async () => {
 async function connect() {
   try {
     const response = await fetch('/api/providers', {headers: headers()});
-    if (response.status === 401) { location.assign('/login'); return; }
+    if (response.status === 401) throw new Error('Site authentication is required. Reopen the protected site.');
     if (!response.ok) throw new Error('Kernel unavailable. Check the server connection settings.');
     const config = await response.json(); assistantName = config.assistant_name; wakePhrase = config.wake_phrase;
     $('connection').textContent = 'Connected';

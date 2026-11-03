@@ -1,31 +1,32 @@
-# Verified scope
+# Validation for removal of custom authentication settings
 
-The Laravel conversion was validated with PHP 8.3.36 and Laravel 13.39.0:
+- The kernel passes 47 Python tests, including a real Uvicorn Unix socket and a separate TCP listener:
+  no-token socket requests succeed; TCP requests fail with 403 even with forged forwarding headers.
+- Laravel passes 12 feature tests covering aaPanel/FastCGI perimeter enforcement, header spoofing,
+  missing authenticated site user, no custom login, no Authorization header to the kernel, SSE frames,
+  input validation, error redaction, automatic scoped tickets, no TCP fallback and migration of old .env
+  fields without prompts. Unrelated configuration and the existing Laravel app key are preserved.
+- PHP 8.3 cURL is an explicit requirement. Streaming uses native cURL Unix sockets, not PHP's TCP stream
+  wrapper, and remains internally bounded without a user-supplied timeout setting.
+- Five JavaScript voice-state tests and PHP style/syntax checks are part of validation.
 
-- 11 Laravel feature tests passed (59 assertions): private login/logout, guest rejection, owner setup,
-  no browser exposure of the kernel token, streamed upstream frames, input validation, error redaction,
-  voice-scoped ticket proxying, remote HTTP rejection and invalid metadata handling.
-- Five JavaScript voice-state tests passed. Module syntax checks passed.
-- PHP platform requirements, Composer schema/lock validation, Pint style and artisan optimize passed.
-- A real Laravel HTTP server authenticated a browser session, rejected a missing CSRF token with 419,
-  proxied a scoped voice ticket and streamed a local test kernel response. The first frame arrived
-  in about 14ms while the fixture intentionally delayed completion for two seconds.
-- Chromium passed login, automatic device speech, voice-ticket first-frame format, interruption,
-  replacement command, mic release, mobile layout and logout with explicit synthetic device/transcript
-  fixtures. No JavaScript errors occurred; the main kernel token was absent from the browser page.
-- Nginx validated the supplied rewrite/WebSocket/hidden-file rules in a representative PHP site config.
-- The kernel branch passed 46 Python tests including ticket expiry, replay prevention and voice-only scope.
+The site uses aaPanel/Nginx authentication instead of a custom Laravel password hash. Production
+requests fail closed if the trusted FastCGI protection/user parameters are missing; the site must
+actually enable server-wide Password Access before those parameters are set. Client request headers
+cannot provide them. The kernel itself must be started on its filesystem-protected Unix socket with
+proxy header rewriting disabled. This is a change of access boundary, not unauthenticated TCP exposure.
 
-The HTTP/device fixtures are development tests, not a runtime fake model provider. Actual Gemma
-inference, physical microphone acoustics, remote aaPanel PHP-FPM deployment, public DNS and Let's
-Encrypt issuance have not been verified by this cloud session. A diagnostic outside the test-kernel
-container correctly reported backend_unavailable; inside the explicitly local protocol fixture it
-passed. This does not establish live model readiness. Use the real kernel readiness script and
-php artisan clifford:check on the target server, then verify text/voice behavior in the HTTPS browser.
+Model/microphone behavior remains unverified on the target server. Local integration tests use an
+explicit deterministic provider and temporary model/database state; no fake provider is installed in
+the application. The source service helper is provided but has not been run on the user's aaPanel host.
+The .deb build remains paused. Live DNS/certificates and OS/PHP-FPM user permissions need target checks.
 
-Dependencies were fetched through verified canonical Git sources because this cloud proxy denies
-GitHub's archive API. Development source installs emitted duplicate-class-map warnings from vendor
-repositories that include extra test/source trees. The canonical application classes were selected,
-all feature tests passed, and the dependency audit reported no advisories. Normal aaPanel installs
-use Composer's locked dist artifacts. No vendor directories, app keys, passwords, .env files, runtime
-caches or logs are committed.
+A real Nginx HTTP-authenticated test site, Laravel and the actual updated kernel were exercised
+end to end over a shared private Unix socket. REST requests, CSRF rejection, ticket minting and the
+Nginx voice WebSocket path passed without a backend token. Native cURL SSE delivered its first frame
+in about 40ms before a deliberately delayed test reply completed. The voice socket correctly reported
+a missing real Vosk model after accepting its ticket. The test PHP router models trusted FastCGI
+server parameters from a private authenticated Nginx peer; a remote aaPanel PHP-FPM installation was
+not provisioned by this session.
+
+The browser also passed automatic speech, synthetic interruption/replacement, mic release and mobile layout over the socket architecture behind real Nginx site authentication. First-time app-key generation is covered even when an old key remains in cached configuration.

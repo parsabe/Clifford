@@ -56,37 +56,27 @@ class CliffordController extends Controller
             'mode' => ['sometimes', 'in:fast,balanced,deep,agentic'],
         ]);
         try {
-            $upstream = $kernel->request('POST', '/v1/chat/stream', $data, true);
-            if (! $upstream->successful()) {
-                $upstream->toPsrResponse()->getBody()->close();
-
-                return response()->json(['error' => ['code' => 'backend_unavailable']], 502);
-            }
+            $kernel->assertAvailable();
         } catch (RuntimeException $exception) {
             return response()->json(['error' => ['code' => $exception->getMessage()]], 503);
         }
 
-        return response()->stream(function () use ($upstream) {
-            $body = $upstream->toPsrResponse()->getBody();
+        return response()->stream(function () use ($kernel, $data) {
             try {
-                // Release PHP's session lock before the long-lived response.
-                // Laravel saves sessions in middleware before this callback is sent.
                 if (function_exists('set_time_limit')) {
-                    set_time_limit(config('clifford.timeout') + 10);
+                    set_time_limit(KernelClient::REQUEST_TIMEOUT + 10);
                 }
-                while (! $body->eof() && ! connection_aborted()) {
-                    echo $body->read(1024);
+                $kernel->stream('/v1/chat/stream', $data, function (string $chunk) {
+                    echo $chunk;
                     if (ob_get_level() > 0) {
                         ob_flush();
                     }
                     flush();
-                }
+                });
             } catch (Throwable $exception) {
                 echo "event: error\ndata: ".json_encode([
-                    'type' => 'error', 'payload' => ['code' => 'stream_interrupted'],
+                    'type' => 'error', 'payload' => ['code' => 'kernel_stream_unavailable'],
                 ])."\n\n";
-            } finally {
-                $body->close();
             }
         }, 200, ['Content-Type' => 'text/event-stream', 'Cache-Control' => 'no-cache, no-store',
             'X-Accel-Buffering' => 'no']);
