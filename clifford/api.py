@@ -35,6 +35,7 @@ from .platforms import Platforms
 from .providers.llm import OllamaProvider, ProviderError, Router
 from .providers.speech import LocalSpeech
 from .tools import Registry, ToolError
+from .voice_tickets import VoiceTickets
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -47,6 +48,7 @@ def create_app(settings=None, provider=None):
     hits = deque()
     speech = LocalSpeech(settings)
     platforms = Platforms(settings, registry)
+    voice_tickets = VoiceTickets()
 
     @asynccontextmanager
     async def lifespan(app):
@@ -324,6 +326,10 @@ def create_app(settings=None, provider=None):
                 approval.status = "denied"
             return record(task)
 
+    @app.post("/v1/voice/tickets")
+    def voice_ticket(owner=Depends(identity)):
+        return voice_tickets.issue(owner)
+
     @app.websocket("/v1/voice/listen")
     async def listen(ws: WebSocket):
         await ws.accept()
@@ -335,7 +341,10 @@ def create_app(settings=None, provider=None):
 
         try:
             auth = await asyncio.wait_for(ws.receive_json(), 10)
-            authenticate(auth.get("token"))
+            if "ticket" in auth:
+                voice_tickets.consume(auth["ticket"])
+            else:
+                authenticate(auth.get("token"))
             recognizer = await asyncio.to_thread(speech.recognizer)
             await send("audio.ready", sample_rate=16000, encoding="pcm_s16le", channels=1)
             window, received = time.monotonic(), 0
